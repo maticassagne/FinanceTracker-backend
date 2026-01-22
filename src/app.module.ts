@@ -17,7 +17,7 @@ import { StatsModule } from './stats/stats.module';
         password: process.env.DB_PASS,
         database: process.env.DB_NAME,
         autoLoadEntities: true,
-        synchronize: true, // ⚠️ solo en desarrollo
+        synchronize: false, // ⚠️ solo en desarrollo
       }),
     }),
     TransactionModule,

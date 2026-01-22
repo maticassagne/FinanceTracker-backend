@@ -42,10 +42,72 @@ export class TransactionService {
     return this.transactionRepo.save(transaction);
   }
 
-  findAll() {
-    return this.transactionRepo.find({
-      order: { date: 'DESC' },
-      relations: ['category'],
-    });
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    filters?: {
+      categoryId?: number;
+      startDate?: string;
+      endDate?: string;
+      type?: 'income' | 'expense';
+      search?: string;
+    },
+  ) {
+    const query = this.transactionRepo
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.category', 'category')
+      .orderBy('transaction.date', 'DESC');
+
+    // Filtro por búsqueda de descripción
+    if (filters?.search) {
+      query.andWhere('LOWER(transaction.description) LIKE LOWER(:search)', {
+        search: `%${filters.search}%`,
+      });
+    }
+
+    // Filtro por categoría
+    if (filters?.categoryId) {
+      query.andWhere('transaction.categoryId = :categoryId', {
+        categoryId: filters.categoryId,
+      });
+    }
+
+    // Filtro por rango de fechas
+    if (filters?.startDate) {
+      query.andWhere('transaction.date >= :startDate', {
+        startDate: filters.startDate,
+      });
+    }
+    if (filters?.endDate) {
+      query.andWhere('transaction.date <= :endDate', {
+        endDate: filters.endDate,
+      });
+    }
+
+    // Filtro por tipo (ingreso/gasto)
+    if (filters?.type) {
+      const isIncome = filters.type === 'income';
+      query.andWhere('category.isIncome = :isIncome', { isIncome });
+    }
+
+    const skip = (page - 1) * limit;
+    const [data, total] = await query.skip(skip).take(limit).getManyAndCount();
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async remove(id: number) {
+    const transaction = await this.transactionRepo.findOne({ where: { id } });
+    if (!transaction)
+      throw new NotFoundException(`Transacción con ID ${id} no encontrada`);
+    return this.transactionRepo.remove(transaction);
   }
 }
